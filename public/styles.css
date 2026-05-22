@@ -1468,6 +1468,80 @@ body {
   gap: 12px;
 }
 
+/* Store Info Full-Width Card */
+.settings-card-full {
+  grid-column: 1 / -1;
+}
+
+.store-info-form {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.store-info-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.store-info-form .form-group {
+  margin-bottom: 12px;
+}
+
+.store-info-form .form-group label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.store-info-form .form-group input {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-light);
+  border-radius: var(--border-radius-sm);
+  padding: 10px 14px;
+  color: var(--text-primary);
+  font-size: 13px;
+  width: 100%;
+  transition: var(--transition-fast);
+}
+
+.store-info-form .form-group input:focus {
+  border-color: var(--primary);
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: 0 0 12px rgba(139, 92, 246, 0.12);
+}
+
+.store-info-form .form-group input::placeholder {
+  color: var(--text-muted);
+  opacity: 0.6;
+}
+
+.store-info-save-indicator {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 0 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--success);
+  opacity: 0;
+  transform: translateY(4px);
+  transition: all 0.3s ease;
+  pointer-events: none;
+}
+
+.store-info-save-indicator.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.store-info-save-indicator svg {
+  stroke: var(--success);
+}
+
 /* --- CUSTOM CHART SVG STYLING --- */
 .svg-grid-line {
   stroke: rgba(255, 255, 255, 0.04);

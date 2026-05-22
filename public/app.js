@@ -1,4 +1,5 @@
 // Core Controller - System Axtral Store Management System
+// Migrated to Server-backed SQLite Secure Engine
 
 document.addEventListener("DOMContentLoaded", () => {
   // --- APPLICATION STATE ---
@@ -10,85 +11,190 @@ document.addEventListener("DOMContentLoaded", () => {
     currentTab: "dashboard",
     editingProductId: null,
     editingCustomerId: null,
+    user: null,
     settings: {
       audio: true,
       lowStockAlert: true
+    },
+    storeInfo: {
+      name: "",
+      cnpj: "",
+      address: "",
+      phone: "",
+      email: "",
+      headerMsg: "",
+      footerMsg: "Obrigado pela preferência!\nVolte sempre!"
     }
   };
 
   // --- INITIALIZATION ---
-  function init() {
-    loadDatabase();
+  async function init() {
     setupClock();
     setupNavigation();
     setupEventListeners();
+    setupAdminEventListeners();
     
-    // Initial Render
-    renderAll();
-    
-    // Check low stock notifications
-    checkLowStock();
+    // Authenticate and load database synchronously
+    await loadDatabase();
   }
 
-  // --- DATABASE SYNC (localStorage) ---
-  function loadDatabase() {
-    const localProducts = localStorage.getItem("axtral_products");
-    const localCustomers = localStorage.getItem("axtral_customers");
-    const localSales = localStorage.getItem("axtral_sales");
-    const localSettings = localStorage.getItem("axtral_settings");
-
-    if (localProducts && localCustomers && localSales) {
-      state.products = JSON.parse(localProducts);
-      state.customers = JSON.parse(localCustomers);
-      state.sales = JSON.parse(localSales);
-    } else {
-      // Seed with high-fidelity Mock Data if local is empty
-      seedMockData();
-    }
-
-    if (localSettings) {
-      state.settings = JSON.parse(localSettings);
-      // Synchronize checkboxes in settings page
+  // --- DATABASE SYNC (API FETCH) ---
+  async function loadDatabase() {
+    try {
+      // 1. Verify Authentication & Retrieve Profile
+      const meResponse = await fetch('/api/auth/me');
+      if (!meResponse.ok) {
+        window.location.href = '/login.html';
+        return;
+      }
+      const me = await meResponse.json();
+      state.user = me;
+      
+      // Update active user credentials on Sidebar UI
+      const nameDisplay = document.getElementById("user-name-display");
+      const roleDisplay = document.getElementById("user-role-display");
+      const avatarDisplay = document.getElementById("profile-avatar");
+      if (nameDisplay) nameDisplay.textContent = me.storeName || me.name;
+      if (roleDisplay) roleDisplay.textContent = me.role === 'superadmin' ? 'Master Admin' : 'Loja Oficial';
+      if (avatarDisplay) avatarDisplay.textContent = (me.storeName || me.name).substring(0, 1).toUpperCase();
+      
+      // Show/hide Super Admin tab based on credentials
+      const navAdmin = document.getElementById("nav-admin");
+      if (me.role === 'superadmin') {
+        if (navAdmin) navAdmin.style.display = "flex";
+      } else {
+        if (navAdmin) navAdmin.style.display = "none";
+      }
+      
+      // Safety redirect if normal store tries to view admin tab
+      if (state.currentTab === "admin" && me.role !== "superadmin") {
+        switchTab("dashboard");
+        return;
+      }
+      
+      // 2. Load admin stats or tenant store details
+      if (me.role === 'superadmin' && state.currentTab === 'admin') {
+        await renderAdmin();
+        return;
+      }
+      
+      // Load tenant-isolated transactional data
+      const [prodRes, custRes, salesRes, settingsRes] = await Promise.all([
+        fetch('/api/products').then(res => res.json()),
+        fetch('/api/customers').then(res => res.json()),
+        fetch('/api/sales').then(res => res.json()),
+        fetch('/api/settings').then(res => res.json())
+      ]);
+      
+      state.products = prodRes;
+      state.customers = custRes;
+      state.sales = salesRes;
+      state.settings = settingsRes.settings;
+      state.storeInfo = settingsRes.storeInfo;
+      
+      // Populate checkboxes on Settings Panel
       const audioCheck = document.getElementById("setting-audio");
       const stockCheck = document.getElementById("setting-lowstock-alert");
       if (audioCheck) audioCheck.checked = state.settings.audio;
       if (stockCheck) stockCheck.checked = state.settings.lowStockAlert;
+      
+      populateStoreInfoFields();
+      
+      // Render layout components
+      renderAll();
+      checkLowStock();
+      
+    } catch (err) {
+      console.error("Database connection failure:", err);
+      showNotification("Erro de conexão com o banco de dados seguro.", "danger");
     }
   }
 
-  function seedMockData() {
-    state.products = [...window.AxtralMockData.products];
-    state.customers = [...window.AxtralMockData.customers];
-    state.sales = [...window.AxtralMockData.sales];
-    saveDatabase();
+  function populateStoreInfoFields() {
+    const fields = {
+      "store-info-name": state.storeInfo.name,
+      "store-info-cnpj": state.storeInfo.cnpj,
+      "store-info-address": state.storeInfo.address,
+      "store-info-phone": state.storeInfo.phone,
+      "store-info-email": state.storeInfo.email,
+      "store-info-header-msg": state.storeInfo.headerMsg,
+      "store-info-footer-msg": state.storeInfo.footerMsg
+    };
+    for (const [id, value] of Object.entries(fields)) {
+      const el = document.getElementById(id);
+      if (el) el.value = value || "";
+    }
   }
 
-  function saveDatabase() {
-    localStorage.setItem("axtral_products", JSON.stringify(state.products));
-    localStorage.setItem("axtral_customers", JSON.stringify(state.customers));
-    localStorage.setItem("axtral_sales", JSON.stringify(state.sales));
-    localStorage.setItem("axtral_settings", JSON.stringify(state.settings));
+  // Scoped refreshing helpers
+  async function refreshProducts() {
+    try {
+      state.products = await fetch('/api/products').then(res => res.json());
+      renderTab("pos");
+      renderTab("inventory");
+      checkLowStock();
+      renderDashboard();
+    } catch (e) {
+      console.error("Error refreshing products:", e);
+    }
+  }
+
+  async function refreshCustomers() {
+    try {
+      state.customers = await fetch('/api/customers').then(res => res.json());
+      renderTab("pos"); // Update POS dropdown selection
+      renderTab("customers");
+    } catch (e) {
+      console.error("Error refreshing customers:", e);
+    }
+  }
+
+  async function refreshSales() {
+    try {
+      state.sales = await fetch('/api/sales').then(res => res.json());
+      renderTab("dashboard");
+      renderTab("orders");
+    } catch (e) {
+      console.error("Error refreshing sales:", e);
+    }
+  }
+
+  async function saveStoreInfoToServer() {
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ storeInfo: state.storeInfo })
+      });
+      if (!res.ok) {
+        showNotification("Erro ao persistir informações da loja.", "danger");
+      }
+    } catch (err) {
+      showNotification("Sem comunicação com o servidor de dados.", "danger");
+    }
+  }
+
+  async function saveSettingsToServer() {
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ settings: state.settings })
+      });
+      if (!res.ok) {
+        showNotification("Erro ao persistir configurações do sistema.", "danger");
+      }
+    } catch (err) {
+      showNotification("Sem comunicação com o servidor de dados.", "danger");
+    }
   }
 
   function resetToFactorySettings() {
-    if (confirm("Deseja realmente restaurar todos os dados originais? Suas vendas e cadastros recentes serão apagados.")) {
-      seedMockData();
-      state.cart = [];
-      renderAll();
-      showNotification("Banco de dados restaurado com sucesso!");
-    }
+    showNotification("Função administrativa desativada por segurança.", "warning");
   }
 
   function clearDatabase() {
-    if (confirm("ALERTA CRÍTICO: Tem certeza que deseja esvaziar todo o banco de dados? Isso apagará todos os produtos, clientes e vendas definitivamente.")) {
-      state.products = [];
-      state.customers = [];
-      state.sales = [];
-      state.cart = [];
-      saveDatabase();
-      renderAll();
-      showNotification("Todo o banco de dados foi esvaziado.", "danger");
-    }
+    showNotification("Função administrativa desativada por segurança.", "warning");
   }
 
   // --- INTERACTIVE CLOCK & TIMERS ---
@@ -171,8 +277,24 @@ document.addEventListener("DOMContentLoaded", () => {
       }, 80);
 
     } catch (e) {
-      console.warn("Navegador bloqueou reprodução de áudio ou AudioContext não é suportado.", e);
+      console.warn("AudioContext blocked or not supported by browser.", e);
     }
+  }
+
+  function playShortCartSound() {
+    if (!state.settings.audio) return;
+    try {
+      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.frequency.setValueAtTime(600, audioCtx.currentTime); 
+      gain.gain.setValueAtTime(0.04, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.05);
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.05);
+    } catch(e){}
   }
 
   // --- REACTIVE RENDERING CONTROLLERS ---
@@ -201,12 +323,14 @@ document.addEventListener("DOMContentLoaded", () => {
       case "customers":
         renderCustomers();
         break;
+      case "admin":
+        renderAdmin();
+        break;
     }
   }
 
   // --- 1. DASHBOARD PAGE CONTROLLER ---
   function renderDashboard() {
-    // Calculando Métricas do Dia
     const today = new Date().toISOString().split("T")[0];
     const todaySales = state.sales.filter(sale => sale.date.startsWith(today));
     
@@ -214,7 +338,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const countSales = todaySales.length;
     const avgTicket = countSales > 0 ? (totalRev / countSales) : 0;
     
-    // Low stock count
+    // Calculate critical levels
     const lowStockItems = state.products.filter(p => p.stock <= p.minStock);
 
     // Dom update
@@ -223,7 +347,6 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("dashboard-avg-ticket").textContent = formatCurrency(avgTicket);
     document.getElementById("dashboard-low-stock-count").textContent = lowStockItems.length;
 
-    // Render low stock label details
     const stockTrendLabel = document.getElementById("stock-trend-label");
     if (stockTrendLabel) {
       if (lowStockItems.length > 0) {
@@ -235,10 +358,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
-    // Render activity list
     renderRecentActivities(lowStockItems);
-
-    // Render gorgeous Custom SVG Chart
     renderDashboardSVGChart();
   }
 
@@ -248,7 +368,6 @@ document.addEventListener("DOMContentLoaded", () => {
     
     let html = "";
     
-    // Add low stock alerts first (if enabled)
     if (state.settings.lowStockAlert && lowStockItems.length > 0) {
       lowStockItems.slice(0, 2).forEach(item => {
         html += `
@@ -268,7 +387,6 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     }
     
-    // Add recent sales logs
     const recentSales = [...state.sales].reverse().slice(0, 3);
     if (recentSales.length > 0) {
       recentSales.forEach(sale => {
@@ -303,7 +421,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const chartContainer = document.getElementById("dashboard-svg-chart");
     if (!chartContainer) return;
     
-    // Prepare sales for the last 7 days (including today)
     const daysLabel = [];
     const salesTotal = [];
     
@@ -313,22 +430,18 @@ document.addEventListener("DOMContentLoaded", () => {
       d.setDate(now.getDate() - i);
       const dateStr = d.toISOString().split("T")[0];
       
-      // Label formatted like "22/May"
       const day = d.getDate();
       const monthNames = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
       daysLabel.push(`${day} ${monthNames[d.getMonth()]}`);
       
-      // Calculate total sales for this day
       const dayRevenue = state.sales
         .filter(sale => sale.date.startsWith(dateStr))
         .reduce((sum, current) => sum + current.total, 0);
       salesTotal.push(dayRevenue);
     }
     
-    // Find Max Value for scaling
-    const maxVal = Math.max(...salesTotal, 500); // minimum scale peak of 500
+    const maxVal = Math.max(...salesTotal, 500); 
     
-    // Draw SVG elements
     const svgWidth = 600;
     const svgHeight = 220;
     const paddingLeft = 50;
@@ -339,17 +452,14 @@ document.addEventListener("DOMContentLoaded", () => {
     const graphWidth = svgWidth - paddingLeft - paddingRight;
     const graphHeight = svgHeight - paddingTop - paddingBottom;
     
-    // Map points coordinates
     const points = salesTotal.map((val, idx) => {
       const x = paddingLeft + (idx * (graphWidth / (salesTotal.length - 1)));
       const y = paddingTop + graphHeight - (val / maxVal * graphHeight);
       return { x, y, value: val };
     });
     
-    // Line path string
     let linePath = `M ${points[0].x} ${points[0].y} `;
     for (let i = 1; i < points.length; i++) {
-      // Add dynamic Bezier curves for organic, premium feel
       const prev = points[i - 1];
       const cpX1 = prev.x + (points[i].x - prev.x) / 2;
       const cpY1 = prev.y;
@@ -358,10 +468,8 @@ document.addEventListener("DOMContentLoaded", () => {
       linePath += `C ${cpX1} ${cpY1}, ${cpX2} ${cpY2}, ${points[i].x} ${points[i].y} `;
     }
     
-    // Area path string (underneath the line)
     const areaPath = `${linePath} L ${points[points.length - 1].x} ${paddingTop + graphHeight} L ${points[0].x} ${paddingTop + graphHeight} Z`;
     
-    // Build Gridlines and axis
     let gridlinesHtml = "";
     const gridTicksCount = 4;
     for (let i = 0; i <= gridTicksCount; i++) {
@@ -373,7 +481,6 @@ document.addEventListener("DOMContentLoaded", () => {
       `;
     }
     
-    // Horizontal axis labels
     let labelsHtml = "";
     points.forEach((pt, idx) => {
       labelsHtml += `
@@ -384,11 +491,9 @@ document.addEventListener("DOMContentLoaded", () => {
       `;
     });
     
-    // Generate full SVG container
     const svgCode = `
       <svg viewBox="0 0 ${svgWidth} ${svgHeight}" class="svg-chart-container">
         <defs>
-          <!-- Gorgeous neon glows gradients -->
           <linearGradient id="chart-gradient" x1="0" y1="0" x2="1" y2="0">
             <stop offset="0%" stop-color="#8b5cf6" />
             <stop offset="100%" stop-color="#06b6d4" />
@@ -399,16 +504,9 @@ document.addEventListener("DOMContentLoaded", () => {
           </linearGradient>
         </defs>
         
-        <!-- Y Gridlines & Y-Axis Labels -->
         ${gridlinesHtml}
-        
-        <!-- Glowing gradient area fill -->
         <path class="svg-chart-area" d="${areaPath}" />
-        
-        <!-- Main Line -->
         <path class="svg-chart-line" d="${linePath}" />
-        
-        <!-- Dots and X-Axis Labels -->
         ${labelsHtml}
       </svg>
     `;
@@ -431,7 +529,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const container = document.getElementById("pos-category-container");
     if (!container) return;
     
-    // Get unique categories
     const categories = ["Todos", ...new Set(state.products.map(p => p.category))];
     
     let html = "";
@@ -446,7 +543,6 @@ document.addEventListener("DOMContentLoaded", () => {
     
     container.innerHTML = html;
     
-    // Category click listeners
     container.querySelectorAll(".pos-category-btn").forEach(btn => {
       btn.addEventListener("click", () => {
         selectedPosCategory = btn.getAttribute("data-category");
@@ -462,12 +558,10 @@ document.addEventListener("DOMContentLoaded", () => {
     
     let filtered = state.products;
     
-    // Filter Category
     if (selectedPosCategory !== "Todos") {
       filtered = filtered.filter(p => p.category === selectedPosCategory);
     }
     
-    // Filter Search
     if (posSearchQuery.trim() !== "") {
       const q = posSearchQuery.toLowerCase();
       filtered = filtered.filter(p => p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q));
@@ -485,7 +579,6 @@ document.addEventListener("DOMContentLoaded", () => {
     
     let html = "";
     filtered.forEach(prod => {
-      // Stock label indicators
       let stockTag = `<div class="pos-product-stock-tag">${prod.stock} un</div>`;
       if (prod.stock === 0) {
         stockTag = `<div class="pos-product-stock-tag empty">Esgotado</div>`;
@@ -515,7 +608,6 @@ document.addEventListener("DOMContentLoaded", () => {
     
     grid.innerHTML = html;
     
-    // Add to cart buttons listeners
     grid.querySelectorAll(".btn-add-cart").forEach(btn => {
       btn.addEventListener("click", () => {
         const id = btn.getAttribute("data-id");
@@ -528,7 +620,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const dropdown = document.getElementById("pos-customer-select");
     if (!dropdown) return;
     
-    // Clear dynamic options (keep first one "Consumidor Geral")
     dropdown.innerHTML = '<option value="">Consumidor Geral</option>';
     
     state.customers.forEach(cust => {
@@ -557,26 +648,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     
     renderPOSCart();
-    
-    // Simple micro-beep trigger
-    if (state.settings.audio) {
-      playShortCartSound();
-    }
-  }
-
-  function playShortCartSound() {
-    try {
-      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      const osc = audioCtx.createOscillator();
-      const gain = audioCtx.createGain();
-      osc.connect(gain);
-      gain.connect(audioCtx.destination);
-      osc.frequency.setValueAtTime(600, audioCtx.currentTime); // Short quick sound
-      gain.gain.setValueAtTime(0.04, audioCtx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.05);
-      osc.start();
-      osc.stop(audioCtx.currentTime + 0.05);
-    } catch(e){}
+    playShortCartSound();
   }
 
   function updateCartQty(productId, increment) {
@@ -618,7 +690,6 @@ document.addEventListener("DOMContentLoaded", () => {
         </div>
       `;
       
-      // Update receipt amounts to zero
       document.getElementById("pos-subtotal").textContent = formatCurrency(0);
       document.getElementById("pos-total").textContent = formatCurrency(0);
       return;
@@ -652,7 +723,6 @@ document.addEventListener("DOMContentLoaded", () => {
     
     container.innerHTML = html;
     
-    // Calculate discounts & total payment
     const discountEl = document.getElementById("pos-discount-input");
     const discount = parseFloat(discountEl ? discountEl.value : 0) || 0;
     
@@ -662,12 +732,11 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("pos-total").textContent = formatCurrency(finalTotal);
   }
 
-  // Bind cart helper functions globally so HTML onclick handlers can trigger them
   window.updateCartQty = updateCartQty;
   window.removeFromCart = removeFromCart;
 
   // --- CHECKOUT TRANSACTION PROCESSOR ---
-  function processCheckout() {
+  async function processCheckout() {
     if (state.cart.length === 0) {
       showNotification("Adicione produtos ao carrinho antes de finalizar!", "warning");
       return;
@@ -686,74 +755,78 @@ document.addEventListener("DOMContentLoaded", () => {
     const paymentMethodEl = document.getElementById("pos-payment-select");
     const paymentMethod = paymentMethodEl ? paymentMethodEl.value : "PIX";
     
-    // 1. Double check and deduct stock
+    // Safe inventory precheck
     let stockError = false;
     state.cart.forEach(cartItem => {
       const origProd = state.products.find(p => p.id === cartItem.product.id);
-      if (origProd.stock < cartItem.quantity) {
-        showNotification(`Estoque insuficiente para o item: ${origProd.name}!`, "danger");
+      if (!origProd || origProd.stock < cartItem.quantity) {
+        showNotification(`Estoque insuficiente para o item: ${origProd ? origProd.name : 'Desconhecido'}!`, "danger");
         stockError = true;
       }
     });
     if (stockError) return;
-    
-    // Deduct stock levels in state
-    state.cart.forEach(cartItem => {
-      const origProd = state.products.find(p => p.id === cartItem.product.id);
-      origProd.stock -= cartItem.quantity;
-      origProd.sold += cartItem.quantity; // track item sales popularity
-    });
-    
-    // 2. Add loyalty points to customers (1 point per R$ 10 spent)
-    if (customer) {
-      customer.totalSpent += total;
-      customer.points += Math.floor(total / 10);
-      
-      // Update Customer tier automatically based on points
-      if (customer.points >= 500) customer.tier = "Platinum";
-      else if (customer.points >= 250) customer.tier = "Gold";
-      else if (customer.points >= 100) customer.tier = "Silver";
-    }
-    
-    // 3. Record sale transaction details
-    const saleId = `VNDA-${1000 + state.sales.length + 1}`;
-    const newSale = {
-      id: saleId,
-      date: new Date().toISOString(),
+
+    // Send payload to node:sqlite secure backend server
+    const body = {
       products: state.cart.map(i => ({ productId: i.product.id, quantity: i.quantity, price: i.product.price })),
-      subtotal: subtotal,
-      discount: discount,
-      total: total,
-      paymentMethod: paymentMethod,
-      customerName: customerName
+      subtotal,
+      discount,
+      total,
+      paymentMethod,
+      customerName
     };
     
-    state.sales.push(newSale);
-    
-    // 4. Save Database
-    saveDatabase();
-    
-    // 5. Sound trigger
-    playCheckoutSound();
-    
-    // 6. Display visual invoice receipt
-    renderReceiptModal(newSale);
-    
-    // 7. Reset POS Cart elements
-    state.cart = [];
-    if (discountEl) discountEl.value = 0;
-    if (customerSelect) customerSelect.value = "";
-    
-    // 8. Re-render Dashboard, Inventory, POS, etc.
-    renderAll();
-    checkLowStock();
-    showNotification(`Venda concluída com sucesso! Recibo gerado.`, "success");
+    try {
+      const res = await fetch('/api/sales', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      
+      const data = await res.json();
+      
+      if (res.ok) {
+        playCheckoutSound();
+        
+        const newSale = {
+          id: data.id,
+          date: new Date().toISOString(),
+          products: body.products,
+          subtotal,
+          discount,
+          total,
+          paymentMethod,
+          customerName
+        };
+        
+        renderReceiptModal(newSale);
+        
+        // Reset states
+        state.cart = [];
+        if (discountEl) discountEl.value = 0;
+        if (customerSelect) customerSelect.value = "";
+        
+        // Fetch fresh synchronizations
+        await Promise.all([
+          refreshProducts(),
+          refreshCustomers(),
+          refreshSales()
+        ]);
+        
+        showNotification(data.message || "Venda processada com sucesso!", "success");
+      } else {
+        showNotification(data.message || "Erro ao processar checkout no servidor.", "danger");
+      }
+    } catch (err) {
+      showNotification("Sem comunicação com o servidor.", "danger");
+    }
   }
 
   function renderReceiptModal(sale) {
     const receiptBox = document.getElementById("receipt-details-box");
     if (!receiptBox) return;
     
+    const info = state.storeInfo;
     const formattedDate = new Date(sale.date).toLocaleDateString("pt-BR") + " " + new Date(sale.date).toLocaleTimeString("pt-BR");
     
     let itemsHtml = "";
@@ -761,17 +834,28 @@ document.addEventListener("DOMContentLoaded", () => {
       const prodDetails = state.products.find(item => item.id === p.productId) || { name: "Produto Excluído" };
       itemsHtml += `
         <div class="receipt-item-row">
-          <span>${p.quantity}x ${prodDetails.name.substring(0, 18)}</span>
+          <span>${p.quantity}x ${prodDetails.name.substring(0, 22)}</span>
           <span>${formatCurrency(p.price * p.quantity)}</span>
         </div>
       `;
     });
+
+    const storeName = info.name || "MINHA LOJA";
+    const storeAddress = info.address ? `<div class="receipt-info">${info.address}</div>` : "";
+    const storeCnpj = info.cnpj ? `<div class="receipt-info">CNPJ: ${info.cnpj}</div>` : "";
+    const storePhone = info.phone ? `<div class="receipt-info">Tel: ${info.phone}</div>` : "";
+    const storeEmail = info.email ? `<div class="receipt-info">${info.email}</div>` : "";
+    const headerMsg = info.headerMsg ? `<div class="receipt-info" style="margin-top: 6px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;">${info.headerMsg}</div>` : "";
+    const footerMsg = info.footerMsg || "Obrigado pela preferência!\nVolte sempre!";
     
     receiptBox.innerHTML = `
       <div class="receipt-header">
-        <div class="receipt-title">AXTRAL COMPUTADORES</div>
-        <div class="receipt-info">Avenida Axtral, 777 • São Paulo, SP</div>
-        <div class="receipt-info">CNPJ: 77.777.777/0001-77</div>
+        <div class="receipt-title">${storeName.toUpperCase()}</div>
+        ${storeAddress}
+        ${storeCnpj}
+        ${storePhone}
+        ${storeEmail}
+        ${headerMsg}
         <div class="receipt-info" style="margin-top: 8px;">DATA: ${formattedDate}</div>
         <div class="receipt-info" style="font-weight: 700;">CUPOM: ${sale.id}</div>
       </div>
@@ -800,12 +884,10 @@ document.addEventListener("DOMContentLoaded", () => {
       
       <div class="receipt-divider"></div>
       <div class="receipt-footer">
-        Obrigado pela preferência!<br>
-        Volte sempre!
+        ${footerMsg.replace(/\n/g, '<br>')}
       </div>
     `;
     
-    // Open receipt modal
     openModal("modal-receipt");
   }
 
@@ -818,23 +900,19 @@ document.addEventListener("DOMContentLoaded", () => {
     const tableBody = document.getElementById("inventory-table-body");
     if (!tableBody) return;
     
-    // Populate Category filter dropdown if not populated yet
     populateInventoryFilters();
     
     let filtered = state.products;
     
-    // Search Filter
     if (inventorySearchQuery.trim() !== "") {
       const q = inventorySearchQuery.toLowerCase();
       filtered = filtered.filter(p => p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q));
     }
     
-    // Category Filter
     if (inventoryCategoryFilter !== "all") {
       filtered = filtered.filter(p => p.category === inventoryCategoryFilter);
     }
     
-    // Stock Level Filter
     if (inventoryStockFilter !== "all") {
       if (inventoryStockFilter === "normal") {
         filtered = filtered.filter(p => p.stock > p.minStock);
@@ -858,7 +936,6 @@ document.addEventListener("DOMContentLoaded", () => {
     
     let html = "";
     filtered.forEach(p => {
-      // Stock Status badges
       let statusBadge = `<span class="badge-status instock">Normal</span>`;
       if (p.stock === 0) {
         statusBadge = `<span class="badge-status outofstock">Esgotado</span>`;
@@ -905,10 +982,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const filter = document.getElementById("inventory-category-filter");
     if (!filter) return;
     
-    // Save current selection value
     const currentVal = filter.value;
     
-    // Clear and reload
     filter.innerHTML = '<option value="all">Todas Categorias</option>';
     const categories = [...new Set(state.products.map(p => p.category))];
     
@@ -919,11 +994,9 @@ document.addEventListener("DOMContentLoaded", () => {
       filter.appendChild(opt);
     });
     
-    // Restore selection
     filter.value = currentVal;
   }
 
-  // Bind inventory controls globally for quick triggers
   window.openEditProductModal = openEditProductProductModal;
   window.deleteProduct = deleteProductItem;
 
@@ -933,7 +1006,6 @@ document.addEventListener("DOMContentLoaded", () => {
     
     state.editingProductId = productId;
     
-    // Populate form elements
     document.getElementById("modal-product-title").textContent = "Editar Produto";
     document.getElementById("form-product-id").value = product.id;
     document.getElementById("form-product-name").value = product.name;
@@ -948,20 +1020,27 @@ document.addEventListener("DOMContentLoaded", () => {
     openModal("modal-product");
   }
 
-  function deleteProductItem(productId) {
+  async function deleteProductItem(productId) {
     const prod = state.products.find(p => p.id === productId);
     if (!prod) return;
     
     if (confirm(`Deseja realmente remover o produto "${prod.name}" do estoque?`)) {
-      state.products = state.products.filter(p => p.id !== productId);
-      saveDatabase();
-      renderAll();
-      checkLowStock();
-      showNotification(`Produto "${prod.name}" foi removido do estoque.`, "warning");
+      try {
+        const res = await fetch(`/api/products/${productId}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (res.ok) {
+          showNotification(data.message || "Produto removido com sucesso!");
+          await refreshProducts();
+        } else {
+          showNotification(data.message || "Erro ao remover produto.", "danger");
+        }
+      } catch (err) {
+        showNotification("Erro de conexão com o servidor.", "danger");
+      }
     }
   }
 
-  function handleProductFormSubmit(e) {
+  async function handleProductFormSubmit(e) {
     e.preventDefault();
     
     const id = document.getElementById("form-product-id").value;
@@ -974,42 +1053,35 @@ document.addEventListener("DOMContentLoaded", () => {
     const minStock = parseInt(document.getElementById("form-product-minstock").value, 10);
     const color = document.getElementById("form-product-color").value;
     
-    if (id) {
-      // Editing Mode
-      const prod = state.products.find(p => p.id === id);
-      if (prod) {
-        prod.name = name;
-        prod.sku = sku;
-        prod.category = category;
-        prod.price = price;
-        prod.cost = cost;
-        prod.stock = stock;
-        prod.minStock = minStock;
-        prod.color = color;
-      }
-      showNotification("Produto atualizado com sucesso!");
-    } else {
-      // Creating Mode
-      const newProd = {
-        id: `prod-${state.products.length + 10}`,
-        name,
-        sku,
-        category,
-        price,
-        cost,
-        stock,
-        minStock,
-        sold: 0,
-        color
-      };
-      state.products.push(newProd);
-      showNotification("Novo produto cadastrado!");
-    }
+    const body = { name, sku, category, price, cost, stock, minStock, color };
     
-    saveDatabase();
-    closeModal("modal-product");
-    renderAll();
-    checkLowStock();
+    try {
+      let res;
+      if (id) {
+        res = await fetch(`/api/products/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+      } else {
+        res = await fetch('/api/products', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+      }
+      
+      const data = await res.json();
+      if (res.ok) {
+        showNotification(data.message || (id ? "Produto atualizado!" : "Produto cadastrado!"));
+        closeModal("modal-product");
+        await refreshProducts();
+      } else {
+        showNotification(data.message || "Erro ao salvar produto.", "danger");
+      }
+    } catch (err) {
+      showNotification("Erro de conexão com o servidor.", "danger");
+    }
   }
 
   // --- 4. ORDERS SALES HISTORY ---
@@ -1020,15 +1092,13 @@ document.addEventListener("DOMContentLoaded", () => {
     const tableBody = document.getElementById("orders-table-body");
     if (!tableBody) return;
     
-    let filtered = [...state.sales].reverse(); // newest sales first
+    let filtered = [...state.sales].reverse(); 
     
-    // Search code or customer
     if (ordersSearchQuery.trim() !== "") {
       const q = ordersSearchQuery.toLowerCase();
       filtered = filtered.filter(sale => sale.id.toLowerCase().includes(q) || sale.customerName.toLowerCase().includes(q));
     }
     
-    // Payment Method filter
     if (ordersPaymentFilter !== "all") {
       filtered = filtered.filter(sale => sale.paymentMethod === ordersPaymentFilter);
     }
@@ -1077,7 +1147,6 @@ document.addEventListener("DOMContentLoaded", () => {
     tableBody.innerHTML = html;
   }
 
-  // Bind view receipt globally
   window.viewOrderReceipt = viewOrderReceipt;
 
   function viewOrderReceipt(saleId) {
@@ -1095,7 +1164,6 @@ document.addEventListener("DOMContentLoaded", () => {
     
     let filtered = state.customers;
     
-    // Search Customer details
     if (customersSearchQuery.trim() !== "") {
       const q = customersSearchQuery.toLowerCase();
       filtered = filtered.filter(c => c.name.toLowerCase().includes(q) || c.email.toLowerCase().includes(q) || c.phone.includes(q));
@@ -1114,7 +1182,6 @@ document.addEventListener("DOMContentLoaded", () => {
     
     let html = "";
     filtered.forEach(c => {
-      // Tier Badge
       let tierClass = "bronze";
       if (c.tier.toLowerCase() === "platinum") tierClass = "platinum";
       else if (c.tier.toLowerCase() === "gold") tierClass = "gold";
@@ -1147,7 +1214,6 @@ document.addEventListener("DOMContentLoaded", () => {
     tableBody.innerHTML = html;
   }
 
-  // Bind customer actions globally
   window.openEditCustomerModal = openEditCustomerModal;
   window.deleteCustomer = deleteCustomer;
 
@@ -1161,24 +1227,32 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("form-customer-id").value = customer.id;
     document.getElementById("form-customer-name").value = customer.name;
     document.getElementById("form-customer-email").value = customer.email;
-    document.getElementById("form-customer-phone").value = customer.phone;
+    document.getElementById("form-customer-phone").value = customer.phone || "";
     
     openModal("modal-customer");
   }
 
-  function deleteCustomer(customerId) {
+  async function deleteCustomer(customerId) {
     const cust = state.customers.find(c => c.id === customerId);
     if (!cust) return;
     
     if (confirm(`Deseja realmente remover o cliente "${cust.name}"?`)) {
-      state.customers = state.customers.filter(c => c.id !== customerId);
-      saveDatabase();
-      renderAll();
-      showNotification(`Cliente "${cust.name}" foi removido do diretório.`, "warning");
+      try {
+        const res = await fetch(`/api/customers/${customerId}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (res.ok) {
+          showNotification(data.message || "Cliente removido com sucesso!");
+          await refreshCustomers();
+        } else {
+          showNotification(data.message || "Erro ao remover cliente.", "danger");
+        }
+      } catch (err) {
+        showNotification("Erro de conexão com o servidor.", "danger");
+      }
     }
   }
 
-  function handleCustomerFormSubmit(e) {
+  async function handleCustomerFormSubmit(e) {
     e.preventDefault();
     
     const id = document.getElementById("form-customer-id").value;
@@ -1186,33 +1260,35 @@ document.addEventListener("DOMContentLoaded", () => {
     const email = document.getElementById("form-customer-email").value;
     const phone = document.getElementById("form-customer-phone").value;
     
-    if (id) {
-      // Editing
-      const cust = state.customers.find(c => c.id === id);
-      if (cust) {
-        cust.name = name;
-        cust.email = email;
-        cust.phone = phone;
-      }
-      showNotification("Cadastro do cliente atualizado!");
-    } else {
-      // Creating
-      const newCust = {
-        id: `cust-${state.customers.length + 10}`,
-        name,
-        email,
-        phone,
-        totalSpent: 0,
-        points: 0,
-        tier: "Bronze"
-      };
-      state.customers.push(newCust);
-      showNotification("Novo cliente cadastrado com sucesso!");
-    }
+    const body = { name, email, phone };
     
-    saveDatabase();
-    closeModal("modal-customer");
-    renderAll();
+    try {
+      let res;
+      if (id) {
+        res = await fetch(`/api/customers/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+      } else {
+        res = await fetch('/api/customers', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+      }
+      
+      const data = await res.json();
+      if (res.ok) {
+        showNotification(data.message || (id ? "Cliente atualizado!" : "Cliente cadastrado!"));
+        closeModal("modal-customer");
+        await refreshCustomers();
+      } else {
+        showNotification(data.message || "Erro ao salvar cliente.", "danger");
+      }
+    } catch (err) {
+      showNotification("Erro de conexão com o servidor.", "danger");
+    }
   }
 
   // --- LOW STOCK NOTIFIER SYSTEM ---
@@ -1235,7 +1311,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // Clicking notification trigger
   const notifTrigger = document.getElementById("notification-trigger");
   if (notifTrigger) {
     notifTrigger.addEventListener("click", () => {
@@ -1252,15 +1327,140 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  // --- 7. MASTER ADMIN PANEL CONTROLLER ---
+  async function renderAdmin() {
+    const tableBody = document.getElementById("admin-stores-table-body");
+    if (!tableBody) return;
+
+    try {
+      // 1. Fetch statistics
+      const statsRes = await fetch('/api/admin/stats');
+      if (statsRes.ok) {
+        const stats = await statsRes.json();
+        document.getElementById("admin-total-stores").textContent = stats.totalStores;
+        document.getElementById("admin-total-revenue").textContent = formatCurrency(stats.totalRevenue);
+        document.getElementById("admin-total-sales").textContent = stats.totalSales;
+        document.getElementById("admin-total-products").textContent = stats.totalProducts;
+      }
+
+      // 2. Fetch stores list
+      const storesRes = await fetch('/api/admin/stores');
+      if (storesRes.ok) {
+        const stores = await storesRes.json();
+        
+        if (stores.length === 0) {
+          tableBody.innerHTML = `
+            <tr>
+              <td colspan="5" style="text-align: center; color: var(--text-muted); padding: 40px 0;">
+                Nenhuma loja registrada no sistema.
+              </td>
+            </tr>
+          `;
+          return;
+        }
+
+        let html = "";
+        stores.forEach(store => {
+          const dateFormatted = new Date(store.created_at).toLocaleDateString("pt-BR") + " " + new Date(store.created_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+          html += `
+            <tr id="admin-store-row-${store.id}">
+              <td style="font-family: var(--font-secondary); font-weight: 700; color: var(--secondary);">${store.id}</td>
+              <td style="font-weight: 600;">${store.name}</td>
+              <td>${store.email}</td>
+              <td style="font-size: 13px;">${dateFormatted}</td>
+              <td>
+                <div class="table-actions-cell" style="justify-content: center;">
+                  <button class="btn-icon delete" onclick="window.deleteStore('${store.id}')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          `;
+        });
+
+        tableBody.innerHTML = html;
+      }
+    } catch (err) {
+      console.error("Error loading master stats:", err);
+      showNotification("Erro ao carregar dados do ecossistema.", "danger");
+    }
+  }
+
+  window.deleteStore = deleteStore;
+
+  async function deleteStore(storeId) {
+    if (confirm(`ALERTA CRÍTICO: Tem certeza que deseja remover a loja "${storeId}" permanentemente? Todos os cadastros, produtos e vendas associados a esta loja serão apagados definitivamente do banco de dados.`)) {
+      try {
+        const res = await fetch(`/api/admin/stores/${storeId}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (res.ok) {
+          showNotification(data.message || "Loja removida com sucesso!");
+          await renderAdmin();
+        } else {
+          showNotification(data.message || "Erro ao remover loja.", "danger");
+        }
+      } catch (err) {
+        showNotification("Erro de conexão com o servidor.", "danger");
+      }
+    }
+  }
+
+  function setupAdminEventListeners() {
+    const btnNewStore = document.getElementById("btn-new-store");
+    if (btnNewStore) {
+      btnNewStore.addEventListener("click", () => {
+        document.getElementById("form-store").reset();
+        openModal("modal-store");
+      });
+    }
+
+    const storeCloseBtn = document.getElementById("modal-store-close-btn");
+    if (storeCloseBtn) storeCloseBtn.addEventListener("click", () => closeModal("modal-store"));
+    
+    const storeCancelBtn = document.getElementById("modal-store-cancel-btn");
+    if (storeCancelBtn) storeCancelBtn.addEventListener("click", () => closeModal("modal-store"));
+
+    const formStore = document.getElementById("form-store");
+    if (formStore) {
+      formStore.addEventListener("submit", async (e) => {
+        e.preventDefault();
+
+        const id = document.getElementById("form-store-id").value.trim().toLowerCase();
+        const name = document.getElementById("form-store-name").value.trim();
+        const email = document.getElementById("form-store-email").value.trim();
+        const password = document.getElementById("form-store-password").value;
+
+        try {
+          const res = await fetch('/api/admin/stores', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id, name, email, password })
+          });
+
+          const data = await res.json();
+          if (res.ok) {
+            showNotification(data.message || "Loja criada com sucesso!", "success");
+            closeModal("modal-store");
+            await renderAdmin();
+          } else {
+            showNotification(data.message || "Erro ao criar loja.", "danger");
+          }
+        } catch (err) {
+          showNotification("Erro de conexão com o servidor.", "danger");
+        }
+      });
+    }
+  }
+
   // --- GLOBAL DOM EVENTS BINDINGS ---
   function setupEventListeners() {
     
-    // Search boxes
+    // Global search routing
     const globalSearch = document.getElementById("global-search-input");
     if (globalSearch) {
       globalSearch.addEventListener("input", (e) => {
         const query = e.target.value.trim();
-        // Redirect searches based on currently active screen
         if (state.currentTab === "pos") {
           posSearchQuery = query;
           const posSearch = document.getElementById("pos-search-input");
@@ -1285,7 +1485,6 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     }
 
-    // POS Specific Search
     const posSearchInput = document.getElementById("pos-search-input");
     if (posSearchInput) {
       posSearchInput.addEventListener("input", (e) => {
@@ -1294,7 +1493,6 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     }
 
-    // POS Cart items discount recalculates total paying
     const posDiscountInput = document.getElementById("pos-discount-input");
     if (posDiscountInput) {
       posDiscountInput.addEventListener("input", () => {
@@ -1302,7 +1500,6 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     }
 
-    // POS Cart Checkout Button
     const posCheckoutBtn = document.getElementById("pos-checkout-btn");
     if (posCheckoutBtn) {
       posCheckoutBtn.addEventListener("click", () => {
@@ -1310,7 +1507,6 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     }
 
-    // POS Cart Clear Button
     const posClearCart = document.getElementById("pos-clear-cart-btn");
     if (posClearCart) {
       posClearCart.addEventListener("click", () => {
@@ -1321,7 +1517,6 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     }
 
-    // Inventory Search
     const invSearchInput = document.getElementById("inventory-search-input");
     if (invSearchInput) {
       invSearchInput.addEventListener("input", (e) => {
@@ -1330,7 +1525,6 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     }
 
-    // Inventory Dropdown category filter
     const invCatFilter = document.getElementById("inventory-category-filter");
     if (invCatFilter) {
       invCatFilter.addEventListener("change", (e) => {
@@ -1339,7 +1533,6 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     }
 
-    // Inventory Dropdown stock levels filter
     const invStockFilter = document.getElementById("inventory-stock-filter");
     if (invStockFilter) {
       invStockFilter.addEventListener("change", (e) => {
@@ -1348,7 +1541,6 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     }
 
-    // Orders Search
     const ordersSearch = document.getElementById("orders-search-input");
     if (ordersSearch) {
       ordersSearch.addEventListener("input", (e) => {
@@ -1357,7 +1549,6 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     }
 
-    // Orders payment method filter dropdown
     const ordersPayFilter = document.getElementById("orders-payment-filter");
     if (ordersPayFilter) {
       ordersPayFilter.addEventListener("change", (e) => {
@@ -1366,7 +1557,6 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     }
 
-    // Customers Search
     const custSearchInput = document.getElementById("customers-search-input");
     if (custSearchInput) {
       custSearchInput.addEventListener("input", (e) => {
@@ -1374,10 +1564,23 @@ document.addEventListener("DOMContentLoaded", () => {
         renderCustomers();
       });
     }
-
-    // --- MODALS TOGGLERS ---
     
-    // New Product modal opener
+    // Logout sidebar footer trigger
+    const btnLogout = document.getElementById("btn-logout");
+    if (btnLogout) {
+      btnLogout.addEventListener("click", async () => {
+        if (confirm("Deseja realmente sair do sistema?")) {
+          try {
+            await fetch('/api/auth/logout', { method: 'POST' });
+            window.location.href = '/login.html';
+          } catch (err) {
+            window.location.href = '/login.html';
+          }
+        }
+      });
+    }
+
+    // Modal creation hooks
     const btnNewProduct = document.getElementById("btn-new-product");
     if (btnNewProduct) {
       btnNewProduct.addEventListener("click", () => {
@@ -1389,7 +1592,6 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     }
 
-    // New Customer modal opener
     const btnNewCustomer = document.getElementById("btn-new-customer");
     if (btnNewCustomer) {
       btnNewCustomer.addEventListener("click", () => {
@@ -1401,32 +1603,29 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     }
 
-    // Product Modal Closes handlers
+    // Closing modal buttons
     const prodClose = document.getElementById("modal-product-close-btn");
     if (prodClose) prodClose.addEventListener("click", () => closeModal("modal-product"));
     const prodCancel = document.getElementById("modal-product-cancel-btn");
     if (prodCancel) prodCancel.addEventListener("click", () => closeModal("modal-product"));
 
-    // Customer Modal Closes handlers
     const custClose = document.getElementById("modal-customer-close-btn");
     if (custClose) custClose.addEventListener("click", () => closeModal("modal-customer"));
     const custCancel = document.getElementById("modal-customer-cancel-btn");
     if (custCancel) custCancel.addEventListener("click", () => closeModal("modal-customer"));
 
-    // Receipt Close handler
     const receiptClose = document.getElementById("modal-receipt-close-btn");
     if (receiptClose) receiptClose.addEventListener("click", () => closeModal("modal-receipt"));
     const btnPrintReceipt = document.getElementById("btn-print-receipt");
     if (btnPrintReceipt) btnPrintReceipt.addEventListener("click", () => closeModal("modal-receipt"));
 
-    // Form Submissions
     const formProduct = document.getElementById("form-product");
     if (formProduct) formProduct.addEventListener("submit", handleProductFormSubmit);
     
     const formCustomer = document.getElementById("form-customer");
     if (formCustomer) formCustomer.addEventListener("submit", handleCustomerFormSubmit);
 
-    // Settings adjustments
+    // Block simulated database tools for Cloud SQLite mode
     const resetSettingsBtn = document.getElementById("btn-settings-reset");
     if (resetSettingsBtn) resetSettingsBtn.addEventListener("click", resetToFactorySettings);
     
@@ -1435,33 +1634,66 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const settingAudio = document.getElementById("setting-audio");
     if (settingAudio) {
-      settingAudio.addEventListener("change", (e) => {
+      settingAudio.addEventListener("change", async (e) => {
         state.settings.audio = e.target.checked;
-        saveDatabase();
+        await saveSettingsToServer();
         showNotification("Preferencia de som atualizada!");
       });
     }
 
     const settingLowStock = document.getElementById("setting-lowstock-alert");
     if (settingLowStock) {
-      settingLowStock.addEventListener("change", (e) => {
+      settingLowStock.addEventListener("change", async (e) => {
         state.settings.lowStockAlert = e.target.checked;
-        saveDatabase();
+        await saveSettingsToServer();
         checkLowStock();
         renderDashboard();
         showNotification("Preferencia de alertas de estoque atualizada!");
       });
     }
+
+    // --- STORE INFO AUTO-SAVE ---
+    let storeInfoSaveTimer = null;
+    const saveIndicator = document.getElementById("store-info-save-indicator");
+    
+    const storeInfoFieldMap = {
+      "store-info-name": "name",
+      "store-info-cnpj": "cnpj",
+      "store-info-address": "address",
+      "store-info-phone": "phone",
+      "store-info-email": "email",
+      "store-info-header-msg": "headerMsg",
+      "store-info-footer-msg": "footerMsg"
+    };
+
+    for (const [elementId, stateKey] of Object.entries(storeInfoFieldMap)) {
+      const el = document.getElementById(elementId);
+      if (el) {
+        el.addEventListener("input", (e) => {
+          state.storeInfo[stateKey] = e.target.value;
+          
+          if (saveIndicator) {
+            saveIndicator.classList.remove("visible");
+          }
+          clearTimeout(storeInfoSaveTimer);
+          storeInfoSaveTimer = setTimeout(async () => {
+            await saveStoreInfoToServer();
+            if (saveIndicator) {
+              saveIndicator.classList.add("visible");
+              setTimeout(() => saveIndicator.classList.remove("visible"), 2500);
+            }
+          }, 500);
+        });
+      }
+    }
   }
 
   // --- FLOATING FEEDBACK NOTIFICATIONS SYSTEM ---
   function showNotification(text, type = "success") {
-    // Create element on the fly
     const toast = document.createElement("div");
     toast.className = `glass-panel toast-notification ${type}`;
     toast.textContent = text;
     
-    // Core toast floating design rules
     Object.assign(toast.style, {
       position: "fixed",
       bottom: "30px",
@@ -1491,13 +1723,11 @@ document.addEventListener("DOMContentLoaded", () => {
     
     document.body.appendChild(toast);
     
-    // Animate in
     setTimeout(() => {
       toast.style.transform = "translateY(0) scale(1)";
       toast.style.opacity = "1";
     }, 50);
     
-    // Remove after 3.5s
     setTimeout(() => {
       toast.style.transform = "translateY(20px) scale(0.9)";
       toast.style.opacity = "0";
@@ -1519,9 +1749,9 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function formatCurrency(val) {
-    return val.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+    return (val || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
   }
 
-  // Run initial setup
+  // Launch controller entrypoint
   init();
 });

@@ -1,0 +1,5 @@
+node_modules/
+axtral.db
+.env
+.DS_Store
+*.log
