@@ -8,7 +8,16 @@ const { DatabaseSync } = require('node:sqlite');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const JWT_SECRET = process.env.JWT_SECRET || 'axtral-os-ultra-secure-key-2026';
+
+// Validação crítica de chave JWT para produção (Hostinger)
+let JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET && process.env.NODE_ENV === 'production') {
+  console.error('ERRO CRÍTICO DE SEGURANÇA: A variável de ambiente JWT_SECRET não está definida em produção!');
+  process.exit(1);
+}
+if (!JWT_SECRET) {
+  JWT_SECRET = 'axtral-os-ultra-secure-key-2026';
+}
 
 // Initialize SQLite database using native node:sqlite
 const db = new DatabaseSync(path.join(__dirname, 'axtral.db'));
@@ -241,6 +250,39 @@ app.use(helmet({
 app.use(express.json());
 app.use(cookieParser());
 
+// Limitador de taxa (Rate Limiter) simples em memória para a rota de login
+const loginAttempts = new Map();
+const RATE_LIMIT_WINDOW = 15 * 60 * 1000; // 15 minutos de janela
+const MAX_ATTEMPTS = 5; // máximo de 5 tentativas malsucedidas/sucessivas por IP
+
+const loginRateLimiter = (req, res, next) => {
+  const ip = req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+  const now = Date.now();
+
+  if (!loginAttempts.has(ip)) {
+    loginAttempts.set(ip, { count: 1, resetTime: now + RATE_LIMIT_WINDOW });
+    return next();
+  }
+
+  const attempt = loginAttempts.get(ip);
+
+  // Resetar se a janela de tempo expirou
+  if (now > attempt.resetTime) {
+    loginAttempts.set(ip, { count: 1, resetTime: now + RATE_LIMIT_WINDOW });
+    return next();
+  }
+
+  attempt.count++;
+  if (attempt.count > MAX_ATTEMPTS) {
+    const minutesLeft = Math.ceil((attempt.resetTime - now) / 60000);
+    return res.status(429).json({
+      message: `Muitas tentativas de login sucessivas. Por favor, tente novamente em ${minutesLeft} minutos.`
+    });
+  }
+
+  next();
+};
+
 // Custom simple JWT extraction middleware
 const authenticateJWT = (req, res, next) => {
   const token = req.cookies.token;
@@ -286,20 +328,24 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 /* --- API ROUTES --- */
 
-// Authenticate user & login
-app.post('/api/auth/login', (req, res) => {
+// Authenticate user & login com limitador de requisições ativo
+app.post('/api/auth/login', loginRateLimiter, (req, res) => {
   const { email, password } = req.body;
   if (!email || !password) {
     return res.status(400).json({ message: 'E-mail/usuário e senha são obrigatórios.' });
   }
 
   try {
+    const ip = req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress;
     // Find store account by email or store ID
     const user = db.prepare('SELECT * FROM stores WHERE email = ? OR id = ?').get(email, email);
 
     if (!user || !bcrypt.compareSync(password, user.password_hash)) {
       return res.status(401).json({ message: 'E-mail/usuário ou senha incorretos.' });
     }
+
+    // Se logar com sucesso, limpar as tentativas de login para este IP
+    loginAttempts.delete(ip);
 
     // Sign jwt token
     const token = jwt.sign(
@@ -308,10 +354,10 @@ app.post('/api/auth/login', (req, res) => {
       { expiresIn: '8h' }
     );
 
-    // Set cookie
+    // Set cookie seguro (Habilita cookies seguros HTTPS em produção)
     res.cookie('token', token, {
       httpOnly: true,
-      secure: false, // Set to true if running on HTTPS
+      secure: process.env.NODE_ENV === 'production', // true em produção (Hostinger) para impedir tráfego HTTP comum
       sameSite: 'strict',
       maxAge: 8 * 60 * 60 * 1000 // 8 hours
     });
@@ -683,8 +729,21 @@ app.post('/api/upload-logo', authenticateJWT, (req, res) => {
       return res.status(400).json({ message: 'Formato de imagem inválido.' });
     }
 
+    // Validação estrita de extensão para mitigar injeção de arquivos (Stored XSS / RCE)
+    const allowedExtensions = ['.png', '.jpg', '.jpeg', '.webp'];
+    const ext = path.extname(filename).toLowerCase();
+    if (!allowedExtensions.includes(ext)) {
+      return res.status(400).json({ message: 'Extensão inválida! Apenas arquivos .png, .jpg, .jpeg e .webp são permitidos.' });
+    }
+
+    // Validação de MIME Type base64 seguro
+    const allowedMimeTypes = ['image/png', 'image/jpeg', 'image/webp'];
+    const mimeType = matches[1].toLowerCase();
+    if (!allowedMimeTypes.includes(mimeType)) {
+      return res.status(400).json({ message: 'Tipo MIME de arquivo inválido. Por favor envie apenas imagens válidas.' });
+    }
+
     const imageBuffer = Buffer.from(matches[2], 'base64');
-    const ext = path.extname(filename) || '.png';
     const storeId = req.user.id;
     
     // Nome do arquivo único por loja
