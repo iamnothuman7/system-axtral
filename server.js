@@ -660,6 +660,46 @@ app.post('/api/settings', authenticateJWT, (req, res) => {
   }
 });
 
+// Endpoint para fazer upload de logotipo customizado em Base64
+app.post('/api/upload-logo', authenticateJWT, (req, res) => {
+  const { filename, base64 } = req.body;
+  if (!filename || !base64) {
+    return res.status(400).json({ message: 'Arquivo e conteúdo são obrigatórios.' });
+  }
+
+  try {
+    const fs = require('fs');
+    const matches = base64.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+    if (!matches || matches.length !== 3) {
+      return res.status(400).json({ message: 'Formato de imagem inválido.' });
+    }
+
+    const imageBuffer = Buffer.from(matches[2], 'base64');
+    const ext = path.extname(filename) || '.png';
+    const storeId = req.user.id;
+    
+    // Nome do arquivo único por loja
+    const relativePath = `/logo-nabio-store/logo-${storeId}${ext}`;
+    const absolutePath = path.join(__dirname, 'public', relativePath);
+
+    // Garantir que a pasta exista
+    const dir = path.dirname(absolutePath);
+    if (!fs.existsSync(dir)){
+      fs.mkdirSync(dir, { recursive: true });
+    }
+
+    fs.writeFileSync(absolutePath, imageBuffer);
+
+    res.json({
+      message: 'Upload realizado com sucesso.',
+      logoUrl: relativePath
+    });
+  } catch (err) {
+    console.error('Upload error:', err);
+    res.status(500).json({ message: 'Erro ao salvar o logotipo no servidor.' });
+  }
+});
+
 // SUPERADMIN MANAGEMENT ROUTES
 const requireSuperadmin = (req, res, next) => {
   if (req.user.role !== 'superadmin') {

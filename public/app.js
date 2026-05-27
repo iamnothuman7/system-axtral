@@ -1058,7 +1058,7 @@ document.addEventListener("DOMContentLoaded", () => {
         </style>
       </head>
       <body>
-        \${content}
+        ${content}
         <script>
           window.onload = function() {
             window.focus();
@@ -1895,7 +1895,55 @@ document.addEventListener("DOMContentLoaded", () => {
             }
           }, 500);
         });
-      }
+    }
+
+    // --- STORE INFO LOGO FILE UPLOAD ---
+    const logoFileInput = document.getElementById("store-info-logo-file");
+    const logoTextInput = document.getElementById("store-info-logo");
+    
+    if (logoFileInput && logoTextInput) {
+      logoFileInput.addEventListener("change", (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        showNotification("Enviando logotipo...", "info");
+        
+        const reader = new FileReader();
+        reader.onload = async () => {
+          try {
+            const response = await fetch('/api/upload-logo', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                filename: file.name,
+                base64: reader.result
+              })
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok && data.logoUrl) {
+              logoTextInput.value = data.logoUrl;
+              state.storeInfo.logoUrl = data.logoUrl;
+              
+              applyCustomLogo(data.logoUrl);
+              
+              await saveStoreInfoToServer();
+              
+              showNotification("Logotipo atualizado com sucesso!", "success");
+            } else {
+              showNotification(data.message || "Erro no envio do logotipo.", "danger");
+            }
+          } catch (err) {
+            console.error("Logo upload failure:", err);
+            showNotification("Falha de conexão ao enviar o logotipo.", "danger");
+          }
+        };
+        reader.onerror = () => {
+          showNotification("Erro ao ler o arquivo selecionado.", "danger");
+        };
+        reader.readAsDataURL(file);
+      });
     }
   }
 
