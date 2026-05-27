@@ -11,7 +11,7 @@ window.AxtralMockData = {
       stock: 42,
       minStock: 10,
       sold: 156,
-      color: "linear-gradient(135deg, #ec4899, #8b5cf6)"
+      color: "linear-gradient(135deg, #7c3aed, #a78bfa)"
     },
     {
       id: "prod-2",
@@ -23,7 +23,7 @@ window.AxtralMockData = {
       stock: 15,
       minStock: 5,
       sold: 98,
-      color: "linear-gradient(135deg, #3b82f6, #06b6d4)"
+      color: "linear-gradient(135deg, #4f46e5, #7c3aed)"
     },
     {
       id: "prod-3",
@@ -35,7 +35,7 @@ window.AxtralMockData = {
       stock: 3,
       minStock: 8,
       sold: 74,
-      color: "linear-gradient(135deg, #10b981, #3b82f6)"
+      color: "linear-gradient(135deg, #7c3aed, #c084fc)"
     },
     {
       id: "prod-4",
@@ -47,7 +47,7 @@ window.AxtralMockData = {
       stock: 12,
       minStock: 4,
       sold: 34,
-      color: "linear-gradient(135deg, #f59e0b, #ec4899)"
+      color: "linear-gradient(135deg, #1e1b4b, #312e81)"
     },
     {
       id: "prod-5",
@@ -59,7 +59,7 @@ window.AxtralMockData = {
       stock: 6,
       minStock: 3,
       sold: 21,
-      color: "linear-gradient(135deg, #8b5cf6, #ec4899)"
+      color: "linear-gradient(135deg, #c084fc, #a78bfa)"
     },
     {
       id: "prod-6",
@@ -71,7 +71,7 @@ window.AxtralMockData = {
       stock: 65,
       minStock: 15,
       sold: 220,
-      color: "linear-gradient(135deg, #06b6d4, #10b981)"
+      color: "linear-gradient(135deg, #09090b, #7c3aed)"
     },
     {
       id: "prod-7",
@@ -83,7 +83,7 @@ window.AxtralMockData = {
       stock: 2,
       minStock: 5,
       sold: 45,
-      color: "linear-gradient(135deg, #ef4444, #f59e0b)"
+      color: "linear-gradient(135deg, #4f46e5, #c084fc)"
     },
     {
       id: "prod-8",
@@ -95,7 +95,7 @@ window.AxtralMockData = {
       stock: 25,
       minStock: 6,
       sold: 83,
-      color: "linear-gradient(135deg, #6366f1, #a855f7)"
+      color: "linear-gradient(135deg, #6366f1, #7c3aed)"
     }
   ],
   customers: [

@@ -6,26 +6,26 @@
   --font-secondary: 'Inter', sans-serif;
 
   /* Colors */
-  --bg-deep: #030014;
-  --bg-surface: rgba(13, 10, 36, 0.45);
-  --bg-card: rgba(255, 255, 255, 0.03);
-  --bg-card-hover: rgba(255, 255, 255, 0.06);
-  --border-light: rgba(255, 255, 255, 0.08);
-  --border-glow: rgba(139, 92, 246, 0.3);
+  --bg-deep: #050505; /* Black Obsidian */
+  --bg-surface: rgba(10, 10, 15, 0.7); /* Sleek Glass Dark */
+  --bg-card: rgba(255, 255, 255, 0.02); /* Cleaner Card Background */
+  --bg-card-hover: rgba(124, 58, 237, 0.06); /* Sutil Violet Hover */
+  --border-light: rgba(255, 255, 255, 0.05); /* Thin sleek border */
+  --border-glow: rgba(124, 58, 237, 0.2); /* Sutil Purple Highlight */
 
-  --primary: #8b5cf6;
-  --primary-glow: rgba(139, 92, 246, 0.5);
-  --secondary: #06b6d4;
-  --secondary-glow: rgba(6, 182, 212, 0.5);
-  --accent: #ec4899;
-  --accent-glow: rgba(236, 72, 153, 0.5);
+  --primary: #7c3aed; /* Brand Purple */
+  --primary-glow: rgba(124, 58, 237, 0.25);
+  --secondary: #c084fc; /* Lavender Purple (replaces old cyan) */
+  --secondary-glow: rgba(192, 132, 252, 0.2);
+  --accent: #a78bfa; /* Soft Violet (replaces old fuchsia) */
+  --accent-glow: rgba(167, 139, 250, 0.2);
   
   --success: #10b981;
-  --success-glow: rgba(16, 185, 129, 0.2);
+  --success-glow: rgba(16, 185, 129, 0.15);
   --warning: #f59e0b;
-  --warning-glow: rgba(245, 158, 11, 0.2);
+  --warning-glow: rgba(245, 158, 11, 0.15);
   --danger: #ef4444;
-  --danger-glow: rgba(239, 68, 68, 0.2);
+  --danger-glow: rgba(239, 68, 68, 0.15);
 
   --text-primary: #f4f4f5;
   --text-secondary: #a1a1aa;
@@ -41,8 +41,8 @@
   --transition-normal: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   --transition-slow: 0.5s cubic-bezier(0.4, 0, 0.2, 1);
   
-  --shadow-neon: 0 0 20px var(--primary-glow);
-  --shadow-cyan: 0 0 20px var(--secondary-glow);
+  --shadow-neon: 0 4px 20px rgba(124, 58, 237, 0.15);
+  --shadow-cyan: 0 4px 20px rgba(192, 132, 252, 0.1);
 }
 
 /* --- RESET & GLOBAL STYLES --- */
@@ -123,13 +123,13 @@ body {
 }
 
 .text-gradient-purple {
-  background: linear-gradient(135deg, #a855f7 0%, #ec4899 100%);
+  background: linear-gradient(135deg, #a78bfa 0%, #7c3aed 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
 .text-gradient-cyan {
-  background: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%);
+  background: linear-gradient(135deg, #c084fc 0%, #a78bfa 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
@@ -146,7 +146,7 @@ body {
   justify-content: space-between;
   padding: 30px 20px;
   border-right: 1px solid var(--border-light);
-  background: rgba(3, 0, 20, 0.7);
+  background: rgba(5, 5, 8, 0.8);
   backdrop-filter: blur(20px);
   z-index: 100;
 }
@@ -158,8 +158,8 @@ body {
   display: flex;
   flex-direction: column;
   position: relative;
-  background: radial-gradient(circle at 50% 0%, rgba(139, 92, 246, 0.08), transparent 45%),
-              radial-gradient(circle at 0% 100%, rgba(6, 182, 212, 0.05), transparent 40%);
+  background: radial-gradient(circle at 50% 0%, rgba(124, 58, 237, 0.05), transparent 50%),
+              radial-gradient(circle at 0% 100%, rgba(192, 132, 252, 0.02), transparent 45%);
 }
 
 .main-header {
@@ -170,7 +170,7 @@ body {
   justify-content: space-between;
   padding: 0 40px;
   border-bottom: 1px solid var(--border-light);
-  background: rgba(3, 0, 20, 0.3);
+  background: rgba(5, 5, 5, 0.4);
   backdrop-filter: blur(10px);
 }
 
@@ -464,26 +464,26 @@ body {
 }
 
 .metric-card.purple .metric-icon-box {
-  background: rgba(139, 92, 246, 0.1);
-  border: 1px solid rgba(139, 92, 246, 0.2);
+  background: rgba(124, 58, 237, 0.1);
+  border: 1px solid rgba(124, 58, 237, 0.2);
 }
 .metric-card.purple svg { stroke: var(--primary); }
 
 .metric-card.cyan .metric-icon-box {
-  background: rgba(6, 182, 212, 0.1);
-  border: 1px solid rgba(6, 182, 212, 0.2);
+  background: rgba(192, 132, 252, 0.1);
+  border: 1px solid rgba(192, 132, 252, 0.2);
 }
 .metric-card.cyan svg { stroke: var(--secondary); }
 
 .metric-card.pink .metric-icon-box {
-  background: rgba(236, 72, 153, 0.1);
-  border: 1px solid rgba(236, 72, 153, 0.2);
+  background: rgba(167, 139, 250, 0.1);
+  border: 1px solid rgba(167, 139, 250, 0.2);
 }
 .metric-card.pink svg { stroke: var(--accent); }
 
 .metric-card.orange .metric-icon-box {
-  background: rgba(245, 158, 11, 0.1);
-  border: 1px solid rgba(245, 158, 11, 0.2);
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px solid rgba(245, 158, 11, 0.15);
 }
 .metric-card.orange svg { stroke: var(--warning); }
 
@@ -706,7 +706,7 @@ body {
 
 .btn-primary:hover {
   transform: translateY(-2px);
-  box-shadow: 0 0 25px rgba(139, 92, 246, 0.6);
+  box-shadow: 0 4px 15px rgba(124, 58, 237, 0.3);
 }
 
 .btn-primary:active {
@@ -749,7 +749,7 @@ body {
 
 .custom-table th {
   padding: 16px 24px;
-  background: rgba(139, 92, 246, 0.04);
+  background: rgba(124, 58, 237, 0.04);
   color: var(--text-secondary);
   font-size: 13px;
   font-weight: 600;

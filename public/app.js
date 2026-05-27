@@ -29,6 +29,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // --- INITIALIZATION ---
   async function init() {
+    // Alerta de segurança caso o usuário abra o arquivo HTML diretamente no disco (file:///)
+    if (window.location.protocol === 'file:') {
+      alert("ATENÇÃO: O Axtral OS está sendo aberto diretamente a partir de um arquivo local (protocolo file:///).\n\nAs operações de banco de dados (exclusão, edição, adição de produtos, clientes e vendas) requerem a comunicação com o servidor de dados seguro.\n\nPor favor, certifique-se de iniciar o servidor executando o comando 'npm start' no terminal do projeto e acessar o endereço 'http://localhost:3000' no seu navegador para utilizar o sistema completo!");
+    }
+
     setupClock();
     setupNavigation();
     setupEventListeners();
@@ -495,12 +500,12 @@ document.addEventListener("DOMContentLoaded", () => {
       <svg viewBox="0 0 ${svgWidth} ${svgHeight}" class="svg-chart-container">
         <defs>
           <linearGradient id="chart-gradient" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0%" stop-color="#8b5cf6" />
-            <stop offset="100%" stop-color="#06b6d4" />
+            <stop offset="0%" stop-color="#7c3aed" />
+            <stop offset="100%" stop-color="#c084fc" />
           </linearGradient>
           <linearGradient id="area-gradient" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stop-color="#8b5cf6" stop-opacity="0.4" />
-            <stop offset="100%" stop-color="#030014" stop-opacity="0" />
+            <stop offset="0%" stop-color="#7c3aed" stop-opacity="0.4" />
+            <stop offset="100%" stop-color="#050505" stop-opacity="0" />
           </linearGradient>
         </defs>
         
@@ -891,6 +896,107 @@ document.addEventListener("DOMContentLoaded", () => {
     openModal("modal-receipt");
   }
 
+  function printReceipt() {
+    const receiptBox = document.getElementById("receipt-details-box");
+    if (!receiptBox) return;
+    const content = receiptBox.innerHTML;
+    
+    let iframe = document.getElementById("receipt-print-iframe");
+    if (!iframe) {
+      iframe = document.createElement("iframe");
+      iframe.id = "receipt-print-iframe";
+      iframe.style.position = "fixed";
+      iframe.style.right = "0";
+      iframe.style.bottom = "0";
+      iframe.style.width = "0";
+      iframe.style.height = "0";
+      iframe.style.border = "none";
+      document.body.appendChild(iframe);
+    }
+    
+    const doc = iframe.contentWindow.document || iframe.contentDocument;
+    doc.open();
+    doc.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Recibo - Axtral OS</title>
+        <style>
+          @page {
+            margin: 0;
+          }
+          body {
+            font-family: 'Courier New', Courier, monospace;
+            color: #000;
+            background: #fff;
+            margin: 0;
+            padding: 20px;
+            width: 80mm; /* Standard thermal receipt width */
+            box-sizing: border-box;
+          }
+          .receipt-header {
+            text-align: center;
+            border-bottom: 1px dashed #000;
+            padding-bottom: 10px;
+            margin-bottom: 10px;
+          }
+          .receipt-title {
+            font-weight: bold;
+            font-size: 15px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+          }
+          .receipt-info {
+            font-size: 11px;
+            margin-top: 3px;
+            line-height: 1.3;
+          }
+          .receipt-divider {
+            border-bottom: 1px dashed #000;
+            margin: 10px 0;
+          }
+          .receipt-item-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+            margin-bottom: 4px;
+          }
+          .receipt-summary-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            font-weight: bold;
+            margin-bottom: 4px;
+          }
+          .receipt-footer {
+            text-align: center;
+            margin-top: 15px;
+            font-size: 11px;
+            line-height: 1.3;
+            border-top: 1px dashed #000;
+            padding-top: 10px;
+          }
+          @media print {
+            body {
+              padding: 4mm;
+            }
+          }
+        </style>
+      </head>
+      <body>
+        \${content}
+        <script>
+          window.onload = function() {
+            window.focus();
+            window.print();
+          };
+        </script>
+      </body>
+      </html>
+    `);
+    doc.close();
+  }
+
   // --- 3. INVENTORY GESTAO DE ESTOQUE ---
   let inventorySearchQuery = "";
   let inventoryCategoryFilter = "all";
@@ -1027,7 +1133,11 @@ document.addEventListener("DOMContentLoaded", () => {
     if (confirm(`Deseja realmente remover o produto "${prod.name}" do estoque?`)) {
       try {
         const res = await fetch(`/api/products/${productId}`, { method: 'DELETE' });
-        const data = await res.json();
+        let data = {};
+        try {
+          data = await res.json();
+        } catch (jsonErr) {}
+        
         if (res.ok) {
           showNotification(data.message || "Produto removido com sucesso!");
           await refreshProducts();
@@ -1071,7 +1181,11 @@ document.addEventListener("DOMContentLoaded", () => {
         });
       }
       
-      const data = await res.json();
+      let data = {};
+      try {
+        data = await res.json();
+      } catch (jsonErr) {}
+      
       if (res.ok) {
         showNotification(data.message || (id ? "Produto atualizado!" : "Produto cadastrado!"));
         closeModal("modal-product");
@@ -1239,7 +1353,11 @@ document.addEventListener("DOMContentLoaded", () => {
     if (confirm(`Deseja realmente remover o cliente "${cust.name}"?`)) {
       try {
         const res = await fetch(`/api/customers/${customerId}`, { method: 'DELETE' });
-        const data = await res.json();
+        let data = {};
+        try {
+          data = await res.json();
+        } catch (jsonErr) {}
+        
         if (res.ok) {
           showNotification(data.message || "Cliente removido com sucesso!");
           await refreshCustomers();
@@ -1278,7 +1396,11 @@ document.addEventListener("DOMContentLoaded", () => {
         });
       }
       
-      const data = await res.json();
+      let data = {};
+      try {
+        data = await res.json();
+      } catch (jsonErr) {}
+      
       if (res.ok) {
         showNotification(data.message || (id ? "Cliente atualizado!" : "Cliente cadastrado!"));
         closeModal("modal-customer");
@@ -1618,6 +1740,8 @@ document.addEventListener("DOMContentLoaded", () => {
     if (receiptClose) receiptClose.addEventListener("click", () => closeModal("modal-receipt"));
     const btnPrintReceipt = document.getElementById("btn-print-receipt");
     if (btnPrintReceipt) btnPrintReceipt.addEventListener("click", () => closeModal("modal-receipt"));
+    const btnPrintReceiptPdf = document.getElementById("btn-print-receipt-pdf");
+    if (btnPrintReceiptPdf) btnPrintReceiptPdf.addEventListener("click", printReceipt);
 
     const formProduct = document.getElementById("form-product");
     if (formProduct) formProduct.addEventListener("submit", handleProductFormSubmit);
