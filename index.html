@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nabio Store - Guia de Inicialização</title>
+  <link rel="stylesheet" href="public/styles.css">
+  <style>
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+      background: radial-gradient(circle at 50% 0%, rgba(124, 58, 237, 0.08), transparent 50%),
+                  radial-gradient(circle at 0% 100%, rgba(192, 132, 252, 0.02), transparent 45%),
+                  #050505;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      color: #f4f4f5;
+      padding: 20px;
+    }
+
+    .guide-card {
+      max-width: 600px;
+      width: 100%;
+      padding: 40px;
+      background: rgba(10, 10, 15, 0.7);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 24px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+      text-align: center;
+      animation: fadeIn 0.8s ease-out;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .brand-header {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 30px;
+    }
+
+    .brand-icon {
+      width: 64px;
+      height: 64px;
+      background: linear-gradient(135deg, #7c3aed, #c084fc);
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 20px rgba(124, 58, 237, 0.4);
+    }
+
+    .brand-icon svg {
+      width: 32px;
+      height: 32px;
+      color: #fff;
+    }
+
+    h1 {
+      font-size: 28px;
+      font-weight: 800;
+      background: linear-gradient(135deg, #fff 30%, #c084fc 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin: 0;
+      letter-spacing: -0.5px;
+    }
+
+    p.subtitle {
+      color: #a1a1aa;
+      font-size: 15px;
+      line-height: 1.6;
+      margin: 0 0 30px 0;
+    }
+
+    .steps-container {
+      text-align: left;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 255, 255, 0.03);
+      border-radius: 16px;
+      padding: 24px;
+      margin-bottom: 30px;
+    }
+
+    .step-item {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    .step-item:last-child {
+      margin-bottom: 0;
+    }
+
+    .step-number {
+      width: 28px;
+      height: 28px;
+      background: rgba(124, 58, 237, 0.15);
+      border: 1px solid rgba(124, 58, 237, 0.3);
+      color: #c084fc;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 13px;
+      flex-shrink: 0;
+    }
+
+    .step-content h3 {
+      font-size: 15px;
+      font-weight: 600;
+      color: #f4f4f5;
+      margin: 0 0 4px 0;
+    }
+
+    .step-content p {
+      font-size: 13px;
+      color: #a1a1aa;
+      margin: 0;
+      line-height: 1.5;
+    }
+
+    code {
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: #a78bfa;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 12px;
+    }
+
+    .btn-action {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      background: linear-gradient(135deg, #7c3aed, #6d28d9);
+      color: #fff;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 12px;
+      font-weight: 600;
+      font-size: 15px;
+      cursor: pointer;
+      text-decoration: none;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 15px rgba(124, 58, 237, 0.25);
+    }
+
+    .btn-action:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(124, 58, 237, 0.4);
+    }
+
+    .badge-info {
+      display: inline-block;
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid rgba(16, 185, 129, 0.2);
+      color: #34d399;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+      margin-bottom: 20px;
+      letter-spacing: 0.5px;
+    }
+
+    .hostinger-info {
+      margin-top: 25px;
+      padding-top: 20px;
+      border-top: 1px dashed rgba(255, 255, 255, 0.08);
+      font-size: 12px;
+      color: #71717a;
+      line-height: 1.6;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="guide-card">
+    <div class="brand-header">
+      <div class="brand-icon">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <rect x="2" y="2" width="20" height="8" rx="2" ry="2" />
+          <rect x="2" y="14" width="20" height="8" rx="2" ry="2" />
+          <line x1="6" y1="6" x2="6.01" y2="6" />
+          <line x1="6" y1="18" x2="6.01" y2="18" />
+          <circle cx="12" cy="14" r="2.5" />
+        </svg>
+      </div>
+      <h1>NABIO STORE</h1>
+    </div>
+
+    <div class="badge-info">SISTEMA DINÂMICO COM BANCO DE DADOS</div>
+    
+    <p class="subtitle">
+      Você abriu o projeto usando o **Go Live (Live Server)**. Como este sistema possui um servidor backend seguro com banco de dados SQLite, ele não roda como uma página estática comum. Siga as instruções abaixo para ligá-lo localmente:
+    </p>
+
+    <div class="steps-container">
+      <div class="step-item">
+        <div class="step-number">1</div>
+        <div class="step-content">
+          <h3>Abra o Terminal</h3>
+          <p>No VS Code, abra o terminal integrado pressionando <code>Ctrl + `</code> (ou vá em Terminal > Novo Terminal).</p>
+        </div>
+      </div>
+
+      <div class="step-item">
+        <div class="step-number">2</div>
+        <div class="step-content">
+          <h3>Inicie o Servidor Node.js</h3>
+          <p>Digite o comando abaixo no terminal e aperte Enter: <br><code>node server.js</code></p>
+        </div>
+      </div>
+
+      <div class="step-item">
+        <div class="step-number">3</div>
+        <div class="step-content">
+          <h3>Acesse no Navegador</h3>
+          <p>Com o servidor ativo, abra o navegador e acesse o endereço oficial:</p>
+        </div>
+      </div>
+    </div>
+
+    <a href="http://localhost:3000" class="btn-action" target="_blank">
+      Acessar Nabio Store (http://localhost:3000)
+    </a>
+
+    <div class="hostinger-info">
+      <strong>☁️ Hospedagem na Hostinger:</strong><br>
+      Quando você subir para a Hostinger, configure uma nova <strong>Node.js Application</strong>, aponte a pasta raiz e defina <code>server.js</code> como o arquivo de inicialização (Application Startup File). A Hostinger executará o comando automaticamente e fará o mapeamento do seu domínio!
+    </div>
+  </div>
+
+</body>
+</html>
