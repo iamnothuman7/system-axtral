@@ -143,24 +143,27 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function applyCustomLogo(logoUrl) {
-    const brandIcon = document.querySelector('.brand-icon');
-    if (brandIcon) {
+    const brand = document.querySelector('.brand');
+    if (brand) {
       if (logoUrl) {
-        brandIcon.innerHTML = `<img src="${logoUrl}" style="width: 100%; height: 100%; object-fit: contain; border-radius: var(--border-radius-sm);">`;
-        brandIcon.style.background = 'none';
-        brandIcon.style.boxShadow = 'none';
-      } else {
-        brandIcon.innerHTML = `
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="2" y="2" width="20" height="8" rx="2" ry="2" />
-            <rect x="2" y="14" width="20" height="8" rx="2" ry="2" />
-            <line x1="6" y1="6" x2="6.01" y2="6" />
-            <line x1="6" y1="18" x2="6.01" y2="18" />
-            <circle cx="12" cy="14" r="2.5" />
-          </svg>
+        brand.innerHTML = `
+          <div class="brand-custom-logo" style="width: 100%; display: flex; justify-content: center; align-items: center; padding: 5px 0;">
+            <img src="${logoUrl}" style="max-height: 48px; max-width: 100%; object-fit: contain;">
+          </div>
         `;
-        brandIcon.style.background = 'linear-gradient(135deg, var(--primary), var(--secondary))';
-        brandIcon.style.boxShadow = 'var(--shadow-neon)';
+      } else {
+        brand.innerHTML = `
+          <div class="brand-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2" y="2" width="20" height="8" rx="2" ry="2" />
+              <rect x="2" y="14" width="20" height="8" rx="2" ry="2" />
+              <line x1="6" y1="6" x2="6.01" y2="6" />
+              <line x1="6" y1="18" x2="6.01" y2="18" />
+              <circle cx="12" cy="14" r="2.5" />
+            </svg>
+          </div>
+          <h1 class="text-gradient">NABIO STORE</h1>
+        `;
       }
     }
   }
