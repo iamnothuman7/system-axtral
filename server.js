@@ -35,7 +35,10 @@ db.exec(`
     phone TEXT DEFAULT '',
     email TEXT DEFAULT '',
     header_msg TEXT DEFAULT '',
-    footer_msg TEXT DEFAULT 'Obrigado pela preferência!\nVolte sempre!'
+    footer_msg TEXT DEFAULT 'Obrigado pela preferência!\nVolte sempre!',
+    logo_url TEXT DEFAULT '',
+    primary_color TEXT DEFAULT '#7c3aed',
+    secondary_color TEXT DEFAULT '#c084fc'
   );
 
   CREATE TABLE IF NOT EXISTS store_settings (
@@ -119,27 +122,30 @@ function seedDatabase() {
     runInTransaction(() => {
       // 1. Create Superadmin Account
       db.prepare('INSERT INTO stores (id, name, email, password_hash, role) VALUES (?, ?, ?, ?, ?)')
-        .run('superadmin', 'Axtral Master', 'admin@axtral.com', adminHash, 'superadmin');
+        .run('superadmin', 'Nabio Master', 'admin@nabio.com', adminHash, 'superadmin');
 
-      db.prepare('INSERT INTO store_info (store_id, name, email) VALUES (?, ?, ?)')
-        .run('superadmin', 'Axtral Master', 'admin@axtral.com');
+      db.prepare('INSERT INTO store_info (store_id, name, email, primary_color, secondary_color) VALUES (?, ?, ?, ?, ?)')
+        .run('superadmin', 'Nabio Master', 'admin@nabio.com', '#7c3aed', '#c084fc');
 
       db.prepare('INSERT INTO store_settings (store_id) VALUES (?)')
         .run('superadmin');
 
       // 2. Create Demo Store Account
       db.prepare('INSERT INTO stores (id, name, email, password_hash, role) VALUES (?, ?, ?, ?, ?)')
-        .run('loja_demo', 'Loja Demo Axtral', 'demo@axtral.com', demoHash, 'store');
+        .run('loja_demo', 'Loja Demo Nabio', 'demo@nabio.com', demoHash, 'store');
 
-      db.prepare('INSERT INTO store_info (store_id, name, cnpj, address, phone, email, header_msg) VALUES (?, ?, ?, ?, ?, ?, ?)')
+      db.prepare('INSERT INTO store_info (store_id, name, cnpj, address, phone, email, header_msg, logo_url, primary_color, secondary_color) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
         .run(
           'loja_demo',
-          'Demo Computadores',
+          'Nabio Store Demo',
           '12.345.678/0001-90',
           'Av. Paulista, 1000 - Bela Vista - São Paulo, SP',
           '(11) 3232-4040',
-          'contato@democomputadores.com',
-          'CUPOM DE VENDA DEMO'
+          'contato@nabio.com',
+          'CUPOM DE VENDA NABIO',
+          '/logo-nabio-store/logo.png', // default path to standard logo
+          '#7c3aed',
+          '#c084fc'
         );
 
       db.prepare('INSERT INTO store_settings (store_id) VALUES (?)')
@@ -599,7 +605,10 @@ app.get('/api/settings', authenticateJWT, (req, res) => {
         phone: info.phone || '',
         email: info.email || '',
         headerMsg: info.header_msg || '',
-        footerMsg: info.footer_msg || ''
+        footerMsg: info.footer_msg || '',
+        logoUrl: info.logo_url || '',
+        primaryColor: info.primary_color || '#7c3aed',
+        secondaryColor: info.secondary_color || '#c084fc'
       }
     });
   } catch (err) {
@@ -615,7 +624,7 @@ app.post('/api/settings', authenticateJWT, (req, res) => {
       if (storeInfo) {
         db.prepare(`
           UPDATE store_info
-          SET name = ?, cnpj = ?, address = ?, phone = ?, email = ?, header_msg = ?, footer_msg = ?
+          SET name = ?, cnpj = ?, address = ?, phone = ?, email = ?, header_msg = ?, footer_msg = ?, logo_url = ?, primary_color = ?, secondary_color = ?
           WHERE store_id = ?
         `).run(
           storeInfo.name || '',
@@ -625,6 +634,9 @@ app.post('/api/settings', authenticateJWT, (req, res) => {
           storeInfo.email || '',
           storeInfo.headerMsg || '',
           storeInfo.footerMsg || '',
+          storeInfo.logoUrl || '',
+          storeInfo.primaryColor || '#7c3aed',
+          storeInfo.secondaryColor || '#c084fc',
           req.user.id
         );
       }

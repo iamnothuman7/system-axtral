@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Axtral OS - Sistema de Gestão para Loja</title>
+  <title>Nabio Store - Sistema de Gestão</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -19,7 +19,7 @@
             <circle cx="12" cy="14" r="2.5" />
           </svg>
         </div>
-        <h1 class="text-gradient">AXTRAL OS</h1>
+        <h1 class="text-gradient">NABIO STORE</h1>
       </div>
       
       <nav class="nav-links" id="sidebar-nav">
@@ -52,10 +52,10 @@
     
     <div class="sidebar-footer" style="flex-direction: column; align-items: stretch; gap: 10px;">
       <div style="display: flex; align-items: center; gap: 12px;">
-        <div class="user-avatar" id="profile-avatar">C</div>
+        <div class="user-avatar" id="profile-avatar">N</div>
         <div class="user-info">
           <span class="user-name" id="user-name-display">Administrador</span>
-          <span class="user-role" id="user-role-display">Axtral Admin</span>
+          <span class="user-role" id="user-role-display">Nabio Admin</span>
         </div>
       </div>
       <button class="btn-secondary" id="btn-logout" style="width: 100%; padding: 6px 12px; font-size: 12px; border-color: rgba(239, 68, 68, 0.2); color: var(--danger); justify-content: center; height: 32px;">
@@ -460,6 +460,31 @@
                 <div class="form-group">
                   <label for="store-info-footer-msg">Mensagem de Rodapé do Recibo</label>
                   <input type="text" id="store-info-footer-msg" placeholder="Ex: Obrigado pela preferência! Volte sempre!">
+                </div>
+              </div>
+              
+              <div class="store-info-row">
+                <div class="form-group" style="grid-column: span 2;">
+                  <label for="store-info-logo">Logotipo da Loja (Caminho Local ou URL Externa)</label>
+                  <input type="text" id="store-info-logo" placeholder="Ex: /logo-nabio-store/logo.png ou https://site.com/logo.png">
+                </div>
+              </div>
+              
+              <div class="store-info-row" style="grid-template-columns: 1fr 1fr; gap: 16px;">
+                <div class="form-group">
+                  <label for="store-info-primary-color">Cor Primária do Sistema</label>
+                  <div style="display: flex; gap: 10px; align-items: center;">
+                    <input type="color" id="store-info-primary-color" style="padding: 0; width: 44px; height: 38px; border: 1px solid var(--border-light); border-radius: var(--border-radius-sm); cursor: pointer; background: none;">
+                    <span style="font-size: 12px; color: var(--text-secondary);">Escolha a cor principal</span>
+                  </div>
+                </div>
+                
+                <div class="form-group">
+                  <label for="store-info-secondary-color">Cor Secundária (Destaque/Glow)</label>
+                  <div style="display: flex; gap: 10px; align-items: center;">
+                    <input type="color" id="store-info-secondary-color" style="padding: 0; width: 44px; height: 38px; border: 1px solid var(--border-light); border-radius: var(--border-radius-sm); cursor: pointer; background: none;">
+                    <span style="font-size: 12px; color: var(--text-secondary);">Escolha a cor de destaque</span>
+                  </div>
                 </div>
               </div>
               

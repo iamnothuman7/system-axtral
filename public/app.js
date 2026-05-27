@@ -97,6 +97,10 @@ document.addEventListener("DOMContentLoaded", () => {
       state.settings = settingsRes.settings;
       state.storeInfo = settingsRes.storeInfo;
       
+      // Aplicar tema de cores salvo do lojista
+      applyCustomTheme(state.storeInfo.primaryColor, state.storeInfo.secondaryColor);
+      applyCustomLogo(state.storeInfo.logoUrl);
+      
       // Populate checkboxes on Settings Panel
       const audioCheck = document.getElementById("setting-audio");
       const stockCheck = document.getElementById("setting-lowstock-alert");
@@ -115,6 +119,52 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  function hexToRgba(hex, alpha) {
+    hex = hex.replace('#', '');
+    if (hex.length === 3) {
+      hex = hex.split('').map(char => char + char).join('');
+    }
+    const r = parseInt(hex.substring(0, 2), 16);
+    const g = parseInt(hex.substring(2, 4), 16);
+    const b = parseInt(hex.substring(4, 6), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  }
+
+  function applyCustomTheme(primaryColor, secondaryColor) {
+    if (!primaryColor) primaryColor = '#7c3aed';
+    if (!secondaryColor) secondaryColor = '#c084fc';
+    
+    document.documentElement.style.setProperty('--primary', primaryColor);
+    document.documentElement.style.setProperty('--primary-glow', hexToRgba(primaryColor, 0.25));
+    
+    document.documentElement.style.setProperty('--secondary', secondaryColor);
+    document.documentElement.style.setProperty('--secondary-glow', hexToRgba(secondaryColor, 0.2));
+    
+  }
+
+  function applyCustomLogo(logoUrl) {
+    const brandIcon = document.querySelector('.brand-icon');
+    if (brandIcon) {
+      if (logoUrl) {
+        brandIcon.innerHTML = `<img src="${logoUrl}" style="width: 100%; height: 100%; object-fit: contain; border-radius: var(--border-radius-sm);">`;
+        brandIcon.style.background = 'none';
+        brandIcon.style.boxShadow = 'none';
+      } else {
+        brandIcon.innerHTML = `
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="2" width="20" height="8" rx="2" ry="2" />
+            <rect x="2" y="14" width="20" height="8" rx="2" ry="2" />
+            <line x1="6" y1="6" x2="6.01" y2="6" />
+            <line x1="6" y1="18" x2="6.01" y2="18" />
+            <circle cx="12" cy="14" r="2.5" />
+          </svg>
+        `;
+        brandIcon.style.background = 'linear-gradient(135deg, var(--primary), var(--secondary))';
+        brandIcon.style.boxShadow = 'var(--shadow-neon)';
+      }
+    }
+  }
+
   function populateStoreInfoFields() {
     const fields = {
       "store-info-name": state.storeInfo.name,
@@ -123,7 +173,10 @@ document.addEventListener("DOMContentLoaded", () => {
       "store-info-phone": state.storeInfo.phone,
       "store-info-email": state.storeInfo.email,
       "store-info-header-msg": state.storeInfo.headerMsg,
-      "store-info-footer-msg": state.storeInfo.footerMsg
+      "store-info-footer-msg": state.storeInfo.footerMsg,
+      "store-info-logo": state.storeInfo.logoUrl,
+      "store-info-primary-color": state.storeInfo.primaryColor || '#7c3aed',
+      "store-info-secondary-color": state.storeInfo.secondaryColor || '#c084fc'
     };
     for (const [id, value] of Object.entries(fields)) {
       const el = document.getElementById(id);
@@ -853,8 +906,15 @@ document.addEventListener("DOMContentLoaded", () => {
     const headerMsg = info.headerMsg ? `<div class="receipt-info" style="margin-top: 6px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;">${info.headerMsg}</div>` : "";
     const footerMsg = info.footerMsg || "Obrigado pela preferência!\nVolte sempre!";
     
+    const logoHtml = info.logoUrl ? `
+      <div class="receipt-logo-container" style="text-align: center; margin-bottom: 10px;">
+        <img src="${info.logoUrl}" alt="Logo" style="max-height: 48px; max-width: 140px; object-fit: contain; filter: grayscale(100%);">
+      </div>
+    ` : "";
+    
     receiptBox.innerHTML = `
       <div class="receipt-header">
+        ${logoHtml}
         <div class="receipt-title">${storeName.toUpperCase()}</div>
         ${storeAddress}
         ${storeCnpj}
@@ -920,7 +980,7 @@ document.addEventListener("DOMContentLoaded", () => {
       <!DOCTYPE html>
       <html>
       <head>
-        <title>Recibo - Axtral OS</title>
+        <title>Recibo - Nabio Store</title>
         <style>
           @page {
             margin: 0;
@@ -933,6 +993,17 @@ document.addEventListener("DOMContentLoaded", () => {
             padding: 20px;
             width: 80mm; /* Standard thermal receipt width */
             box-sizing: border-box;
+          }
+          .receipt-logo-container {
+            text-align: center;
+            margin-bottom: 8px;
+          }
+          .receipt-logo-container img {
+            max-height: 48px;
+            max-width: 140px;
+            object-fit: contain;
+            filter: grayscale(100%);
+            -webkit-filter: grayscale(100%);
           }
           .receipt-header {
             text-align: center;
@@ -1787,7 +1858,10 @@ document.addEventListener("DOMContentLoaded", () => {
       "store-info-phone": "phone",
       "store-info-email": "email",
       "store-info-header-msg": "headerMsg",
-      "store-info-footer-msg": "footerMsg"
+      "store-info-footer-msg": "footerMsg",
+      "store-info-logo": "logoUrl",
+      "store-info-primary-color": "primaryColor",
+      "store-info-secondary-color": "secondaryColor"
     };
 
     for (const [elementId, stateKey] of Object.entries(storeInfoFieldMap)) {
@@ -1795,6 +1869,16 @@ document.addEventListener("DOMContentLoaded", () => {
       if (el) {
         el.addEventListener("input", (e) => {
           state.storeInfo[stateKey] = e.target.value;
+          
+          // Se for uma cor de personalização, aplicar o tema dinamicamente na tela imediatamente!
+          if (stateKey === 'primaryColor' || stateKey === 'secondaryColor') {
+            applyCustomTheme(state.storeInfo.primaryColor, state.storeInfo.secondaryColor);
+          }
+          
+          // Se for o logotipo, aplicar dinamicamente na tela imediatamente!
+          if (stateKey === 'logoUrl') {
+            applyCustomLogo(state.storeInfo.logoUrl);
+          }
           
           if (saveIndicator) {
             saveIndicator.classList.remove("visible");
