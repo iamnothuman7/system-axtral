@@ -184,8 +184,9 @@ body {
 .brand {
   display: flex;
   align-items: center;
+  justify-content: center;
+  width: 100%;
   gap: 12px;
-  padding-left: 10px;
 }
 
 .brand-icon {

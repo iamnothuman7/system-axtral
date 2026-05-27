@@ -116,7 +116,7 @@ function seedDatabase() {
   if (userCount.count === 0) {
     console.log('Database empty. Creating default user accounts and seeding demo data...');
 
-    const adminHash = bcrypt.hashSync('admin123', 10);
+    const adminHash = bcrypt.hashSync('n@biostoreadmin2026', 10);
     const demoHash = bcrypt.hashSync('demo123', 10);
 
     runInTransaction(() => {
@@ -214,6 +214,15 @@ function seedDatabase() {
 }
 
 seedDatabase();
+
+// Force update superadmin password on boot to match new requirement
+try {
+  const forcedAdminHash = bcrypt.hashSync('n@biostoreadmin2026', 10);
+  db.prepare('UPDATE stores SET password_hash = ? WHERE id = ?').run(forcedAdminHash, 'superadmin');
+  console.log('Superadmin password verified and updated.');
+} catch (err) {
+  console.error('Failed to update superadmin password at startup:', err);
+}
 
 // Middleware configuration
 app.use(helmet({

@@ -154,15 +154,11 @@ document.addEventListener("DOMContentLoaded", () => {
       } else {
         brand.innerHTML = `
           <div class="brand-icon">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <rect x="2" y="2" width="20" height="8" rx="2" ry="2" />
-              <rect x="2" y="14" width="20" height="8" rx="2" ry="2" />
-              <line x1="6" y1="6" x2="6.01" y2="6" />
-              <line x1="6" y1="18" x2="6.01" y2="18" />
+            <svg class="brand-logo-svg" viewBox="0 0 24 24">
+              <path d="M12 2L2 22h20L12 2zm0 4.8L18.6 19H5.4L12 6.8z" />
               <circle cx="12" cy="14" r="2.5" />
             </svg>
           </div>
-          <h1 class="text-gradient">NABIO STORE</h1>
         `;
       }
     }
@@ -911,7 +907,7 @@ document.addEventListener("DOMContentLoaded", () => {
     
     const logoHtml = info.logoUrl ? `
       <div class="receipt-logo-container" style="text-align: center; margin-bottom: 10px;">
-        <img src="${info.logoUrl}" alt="Logo" style="max-height: 48px; max-width: 140px; object-fit: contain; filter: grayscale(100%);">
+        <img src="${window.location.origin}${info.logoUrl}" alt="Logo" style="max-height: 48px; max-width: 140px; object-fit: contain; filter: grayscale(100%);">
       </div>
     ` : "";
     
@@ -986,73 +982,89 @@ document.addEventListener("DOMContentLoaded", () => {
         <title>Recibo - Nabio Store</title>
         <style>
           @page {
-            margin: 0;
+            size: A4;
+            margin: 20mm;
           }
           body {
-            font-family: 'Courier New', Courier, monospace;
-            color: #000;
+            font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            color: #1f2937;
             background: #fff;
             margin: 0;
-            padding: 20px;
-            width: 80mm; /* Standard thermal receipt width */
+            padding: 0;
+            width: 100%;
             box-sizing: border-box;
           }
           .receipt-logo-container {
             text-align: center;
-            margin-bottom: 8px;
+            margin-bottom: 16px;
           }
           .receipt-logo-container img {
-            max-height: 48px;
-            max-width: 140px;
+            max-height: 80px;
+            max-width: 240px;
             object-fit: contain;
-            filter: grayscale(100%);
-            -webkit-filter: grayscale(100%);
           }
           .receipt-header {
             text-align: center;
-            border-bottom: 1px dashed #000;
-            padding-bottom: 10px;
-            margin-bottom: 10px;
+            border-bottom: 2px solid #111827;
+            padding-bottom: 20px;
+            margin-bottom: 24px;
           }
           .receipt-title {
-            font-weight: bold;
-            font-size: 15px;
+            font-weight: 800;
+            font-size: 28px;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
+            letter-spacing: -0.5px;
+            color: #111827;
           }
           .receipt-info {
-            font-size: 11px;
-            margin-top: 3px;
-            line-height: 1.3;
+            font-size: 14px;
+            color: #4b5563;
+            margin-top: 4px;
+            line-height: 1.5;
           }
           .receipt-divider {
-            border-bottom: 1px dashed #000;
-            margin: 10px 0;
+            border-bottom: 1px solid #e5e7eb;
+            margin: 20px 0;
           }
           .receipt-item-row {
             display: flex;
             justify-content: space-between;
-            font-size: 11px;
-            margin-bottom: 4px;
+            font-size: 15px;
+            padding: 12px 0;
+            border-bottom: 1px solid #f3f4f6;
+            color: #1f2937;
+          }
+          .receipt-item-row:last-of-type {
+            border-bottom: none;
           }
           .receipt-summary-row {
             display: flex;
             justify-content: space-between;
-            font-size: 12px;
-            font-weight: bold;
-            margin-bottom: 4px;
+            font-size: 15px;
+            font-weight: 600;
+            padding: 8px 0;
+            color: #374151;
+          }
+          .receipt-summary-row:last-of-type {
+            font-size: 20px !important;
+            font-weight: 800;
+            color: #111827;
+            border-top: 2px double #111827;
+            padding-top: 14px;
+            margin-top: 10px !important;
           }
           .receipt-footer {
             text-align: center;
-            margin-top: 15px;
-            font-size: 11px;
-            line-height: 1.3;
-            border-top: 1px dashed #000;
-            padding-top: 10px;
+            margin-top: 40px;
+            font-size: 13px;
+            color: #6b7280;
+            line-height: 1.6;
+            border-top: 1px solid #e5e7eb;
+            padding-top: 24px;
           }
           @media print {
             body {
-              padding: 4mm;
+              padding: 0;
             }
           }
         </style>
@@ -1895,6 +1907,7 @@ document.addEventListener("DOMContentLoaded", () => {
             }
           }, 500);
         });
+      }
     }
 
     // --- STORE INFO LOGO FILE UPLOAD ---
